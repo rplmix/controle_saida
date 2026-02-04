@@ -1,11 +1,13 @@
-# app_saida.py
 from flask import Flask, request, redirect, url_for, render_template_string
 import sqlite3
 from datetime import datetime
 import os
 
 app = Flask(__name__)
-DB = 'saida_materiais.db'
+
+# --- AJUSTE DE CAMINHO PARA O RENDER ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB = os.path.join(BASE_DIR, 'saida_materiais.db')
 
 # ------------------ CONFIGURAÇÕES ------------------
 ITENS_VALIDOS = {
@@ -31,6 +33,9 @@ def init_db():
             )
         ''')
         conn.commit()
+
+# Inicializa o banco ao carregar o app
+init_db()
 
 # ------------------ ROTAS ------------------
 @app.route('/', methods=['GET', 'POST'])
@@ -135,13 +140,10 @@ TEMPLATE_LEITURA = '''
 body {
   margin:0;
   font-family: Arial,sans-serif;
-  background:
-    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
-    url('/static/notos_logo.png') no-repeat center center fixed;
-  background-size: cover;
+  background-color: #f4f4f4;
 }
 .container {
-  background: rgba(88,0,88,0.85);
+  background: rgba(88,0,88,0.9);
   color:white;
   width:90%;
   max-width:500px;
@@ -149,23 +151,22 @@ body {
   padding:30px;
   border-radius:20px;
   text-align:center;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
 input, button { width:100%; padding:12px; margin-top:10px; border-radius:8px; border:none;}
-button { background:#fff; color:#580058; font-weight:bold; }
+button { background:#fff; color:#580058; font-weight:bold; cursor:pointer;}
 .resumo { margin-top:30px; text-align:center; color:#580058; }
-.resumo table { border-collapse: collapse; margin: 0 auto; background:white; color:black; }
+.resumo table { border-collapse: collapse; margin: 0 auto; background:white; color:black; width:100%;}
 .resumo th, .resumo td { border:1px solid #580058; padding:10px; text-align:center; }
 .itens { text-align:center; margin-bottom:20px; }
 .itens ul { list-style:none; padding:0; font-weight:bold; }
 .itens li { margin:5px 0; }
-.resumo a { display:inline-block; margin-top:15px; color:white; font-weight:bold; text-decoration:none; }
-.resumo a:hover { text-decoration: underline; }
+.resumo a { display:inline-block; margin-top:15px; color:white; font-weight:bold; text-decoration:none; background:#580058; padding: 10px; border-radius: 8px;}
 </style>
 </head>
 <body>
 <div class="container">
 <h2>Controle de Saída</h2>
-
 <div class="itens">
 <strong>Identificação dos Materiais:</strong>
 <ul>
@@ -174,16 +175,14 @@ button { background:#fff; color:#580058; font-weight:bold; }
 {% endfor %}
 </ul>
 </div>
-
 <form method="post">
   <input name="codigo" autofocus placeholder="Bipe o código" required>
   <button>Confirmar</button>
 </form>
-
 <div class="resumo">
-<h3>Resumo do que já saiu:</h3>
+<h3 style="color:white;">Resumo Total:</h3>
 <table>
-<tr><th>Item</th><th>Total Saído</th></tr>
+<tr><th>Item</th><th>Total</th></tr>
 {% for r in resumo %}
 <tr>
   <td>{{ r[0] }}</td>
@@ -201,12 +200,12 @@ button { background:#fff; color:#580058; font-weight:bold; }
 TEMPLATE_REGISTRO = '''
 <!doctype html>
 <html>
-<head><meta charset="utf-8"><title>Registrar Retirada</title></head>
+<head><meta charset="utf-8"><title>Registrar</title></head>
 <body>
 <h2>Item: {{ item_nome }}</h2>
 <form method="post">
 <input name="usuario" placeholder="Nome de quem retirou" required><br><br>
-<input name="quantidade" type="number" min="0" value="0" required><br><br>
+<input name="quantidade" type="number" min="0" required><br><br>
 <select name="destino" required>
 {% for d in destinos %}
 <option value="{{ d }}">{{ d }}</option>
@@ -214,104 +213,49 @@ TEMPLATE_REGISTRO = '''
 </select><br><br>
 <button>Registrar saída</button>
 </form>
+<a href="/">Voltar</a>
 </body>
 </html>
 '''
 
 TEMPLATE_SUCESSO = '''
 <!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Sucesso</title></head>
-<body>
-<h2>Retirada registrada com sucesso ✅</h2>
-<a href="/">Nova retirada</a> | <a href="/historico">Ver histórico</a>
-</body>
-</html>
+<html><body style="text-align:center; font-family:sans-serif; padding-top:50px;">
+<h2>✅ Registrado com sucesso!</h2>
+<a href="/">Voltar para Início</a> | <a href="/historico">Ver Histórico</a>
+</body></html>
 '''
 
 TEMPLATE_HISTORICO = '''
 <!doctype html>
 <html>
-<head><meta charset="utf-8">
-<title>Histórico</title>
-<style>
-table { border-collapse: collapse; width: 100%; }
-th, td { border:1px solid black; padding:5px; text-align:center; }
-form { display:inline; }
-button { padding:4px 8px; }
-</style>
+<head><meta charset="utf-8"><title>Histórico</title>
+<style>table { border-collapse: collapse; width: 100%; } th, td { border:1px solid black; padding:8px; text-align:center; }</style>
 </head>
 <body>
-<h2>Histórico de Retiradas</h2>
+<h2>Histórico</h2>
 <table>
 <tr><th>Item</th><th>Qtd</th><th>Usuário</th><th>Destino</th><th>Data</th><th>Ações</th></tr>
 {% for d in dados %}
 <tr>
-<td>{{ d[1] }}</td>
-<td>{{ d[2] }}</td>
-<td>{{ d[3] }}</td>
-<td>{{ d[4] }}</td>
-<td>{{ d[5] }}</td>
-<td>
-<a href="/editar/{{ d[0] }}">Editar</a>
-<form method="post" action="/deletar/{{ d[0] }}" style="display:inline;">
-<button type="submit">Excluir</button>
-</form>
-</td>
+<td>{{ d[1] }}</td><td>{{ d[2] }}</td><td>{{ d[3] }}</td><td>{{ d[4] }}</td><td>{{ d[5] }}</td>
+<td><form method="post" action="/deletar/{{ d[0] }}"><button type="submit">Excluir</button></form></td>
 </tr>
 {% endfor %}
-</table>
-<br>
-<a href="/">Voltar</a>
-</body>
-</html>
-'''
-
-TEMPLATE_EDITAR = '''
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Editar Retirada</title></head>
-<body>
-<h2>Editar Retirada</h2>
-<form method="post">
-<label>Item:</label>
-<select name="item" required>
-{% for i in itens %}
-<option value="{{ i }}" {% if i==registro[0] %}selected{% endif %}>{{ i }}</option>
-{% endfor %}
-</select><br><br>
-
-<label>Quantidade:</label>
-<input name="quantidade" type="number" min="0" value="{{ registro[1] }}" required><br><br>
-
-<label>Usuário:</label>
-<input name="usuario" value="{{ registro[2] }}" required><br><br>
-
-<label>Destino:</label>
-<select name="destino" required>
-{% for d in destinos %}
-<option value="{{ d }}" {% if d==registro[3] %}selected{% endif %}>{{ d }}</option>
-{% endfor %}
-</select><br><br>
-
-<button>Salvar alterações</button>
-</form>
-<br>
-<a href="/historico">Cancelar</a>
+</table><br><a href="/">Voltar</a>
 </body>
 </html>
 '''
 
 TEMPLATE_ERRO = '''
 <!doctype html>
-<html><body>
-<h2>Código inválido ❌</h2>
-<a href="/">Voltar</a>
+<html><body style="text-align:center; padding-top:50px;">
+<h2>❌ Código Inválido</h2>
+<a href="/">Tentar novamente</a>
 </body></html>
 '''
 
 # ------------------ START ------------------
 if __name__ == '__main__':
-    if not os.path.exists(DB):
-        init_db()
-    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+    # No Render, o gunicorn ignora isso, mas localmente ainda funciona
+    app.run(host='0.0.0.0', port=5000)

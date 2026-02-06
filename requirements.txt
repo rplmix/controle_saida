@@ -1,4 +1,2 @@
-flask
+pandas
 gunicorn
-psycopg2-binary
-SQLAlchemy
